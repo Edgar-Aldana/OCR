@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>OCR y Traducción</title>
+    <link rel="stylesheet" href="/static/styles/styles.css">
+</head>
+<body>
+    
+    <h1>Herramienta OCR - Visión por computadora</h1>
+
+    <div class="buttonContainer">
+        <button onclick="showUploadForm()">Subir Imagen</button>
+        <button onclick="showCamera()">Usar Cámara</button>
+    </div>
+
+    <div id="upload-form" style="display:none;" class="formUploadImage">
+        <h2>Subir Imagen</h2>
+        <form id="upload-form-element" enctype="multipart/form-data" method="post">
+            <input id="file-input" name="file" type="file">
+            <input type="button" value="Subir Imagen" onclick="uploadImage()">
+        </form>
+    </div>
+    
+    <div id="camera-form" style="display:none;">
+        <h2>Capturar desde Cámara</h2>
+        <video id="video" width="640" height="480" autoplay style="transform: scaleX(-1);"></video>
+        <button id="snap">Capturar</button>
+        <canvas id="canvas" style="display:none;"></canvas>
+    </div>
+    <br>
+    
+    <div class="imageContainer">
+        <h2>Imagen:</h2>
+        <img id="uploaded-image" src="" style="max-width: 640px; max-height: 480px;">
+    </div>
+    
+    <div class="textContainer">
+
+        <h2>Texto Detectado:</h2>
+        <div id="detected-text"></div>
+
+        <h2>Texto Traducido:</h2>
+        <div id="translated-text"></div>
+
+    </div>
+    
+
+    <footer>
+            <h2>Equipo</h2>
+            <ul>
+                <li>Aldana García Edgar</li>
+                <li>Franco Miranda Michael</li>
+                <li>Sotero Grande Ezequiel</li>
+            </ul>
+    </footer>
+
+    <script>
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const snap = document.getElementById('snap');
+        const detectedTextDiv = document.getElementById('detected-text');
+        const translatedTextDiv = document.getElementById('translated-text');
+        const uploadedImage = document.getElementById('uploaded-image');
+
+        function showUploadForm() {
+            document.getElementById('upload-form').style.display = 'block';
+            document.getElementById('camera-form').style.display = 'none';
+        }
+
+        function showCamera() {
+            document.getElementById('upload-form').style.display = 'none';
+            document.getElementById('camera-form').style.display = 'block';
+            if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } }).then(function(stream) {
+                    video.srcObject = stream;
+                    video.play();
+                });
+            }
+        }
+
+        snap.addEventListener("click", function() {
+            const context = canvas.getContext('2d');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+            const dataURL = canvas.toDataURL('image/png');
+            uploadedImage.src = dataURL;
+
+            fetch('/process_camera/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ image: dataURL })
+            })
+            .then(response => response.json())
+            .then(data => {
+                detectedTextDiv.innerText = data.extracted_text;
+                translatedTextDiv.innerText = data.translated_text;
+            });
+        });
+
+        function uploadImage() {
+            const form = document.getElementById('upload-form-element');
+            const formData = new FormData(form);
+
+            fetch('/process_image/', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                detectedTextDiv.innerText = data.extracted_text;
+                translatedTextDiv.innerText = data.translated_text;
+                uploadedImage.src = URL.createObjectURL(form.elements.file.files[0]);
+            });
+        }
+    </script>
+</body>
+</html>
